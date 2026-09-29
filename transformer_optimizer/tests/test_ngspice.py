@@ -83,9 +83,12 @@ def test_core_loss_recomputed_for_line_voltage(spec, material):
 
 
 @pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice executable unavailable")
-def test_linear_rectifier_smoke(spec, material):
+def test_linear_rectifier_smoke(spec, material, tmp_path):
     deck = _deck(spec, material)
-    result = NgSpiceRunner().run(deck)
+    result = NgSpiceRunner().run(deck, plots_dir=tmp_path)
+    for name in ("startup_currents.png", "steady_currents.png", "dc_rails.png"):
+        image = tmp_path / name
+        assert image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert result.primary_rms_current_a > result.no_load_current_a > 0
     assert len(result.secondary_rms_current_a) == 2
     assert all(0 < i < 20 for i in result.secondary_rms_current_a)
@@ -113,7 +116,11 @@ def test_linear_rectifier_smoke(spec, material):
     assert high_line.mains_voltage_rms == 253.0
     assert high_line.switch_phase_deg == 0.0
     assert high_line.rectified_dc_voltage_v[0] > result.rectified_dc_voltage_v[0]
-    startup = NgSpiceRunner().sweep_startup(deck, (230.0,), (0.0, 90.0))
+    startup = NgSpiceRunner().sweep_startup(
+        deck, (230.0,), (0.0, 90.0),
+        plot_path=tmp_path / "startup_phase_sweep.png")
+    assert (tmp_path / "startup_phase_sweep.png").read_bytes().startswith(
+        b"\x89PNG\r\n\x1a\n")
     assert startup[(230.0, 0.0)] > 0
     assert startup[(230.0, 90.0)] > 0
     report = with_ngspice_results(OptimizationResult(

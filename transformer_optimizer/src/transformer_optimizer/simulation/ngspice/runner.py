@@ -55,7 +55,8 @@ class NgSpiceRunner:
             raise NgSpiceExecutionError(
                 f"Invalid ngspice output: {exc}\n{process.stdout[-3000:]}\n{process.stderr[-3000:]}") from exc
 
-    def run(self, deck: NgSpiceTransformerDeck) -> NgSpiceResult:
+    def run(self, deck: NgSpiceTransformerDeck,
+            plots_dir: Path | None = None) -> NgSpiceResult:
         with tempfile.TemporaryDirectory(prefix="toroid-ngspice-") as temporary:
             root = Path(temporary)
             temperature = (deck.winding_temperature_c if deck.winding_temperature_c is not None
@@ -69,6 +70,9 @@ class NgSpiceRunner:
                 if not isfinite(next_temperature) or next_temperature > 1e4:
                     raise NgSpiceExecutionError("ngspice thermal feedback diverged")
                 if abs(next_temperature - temperature) <= deck.config.thermal_tolerance_c:
+                    if plots_dir is not None:
+                        from ...reports.ngspice_plots import save_waveform_plots
+                        save_waveform_plots(current, loaded, Path(plots_dir))
                     return replace(result, thermal_iterations=iteration)
                 temperature = next_temperature
             raise NgSpiceExecutionError("ngspice thermal feedback did not converge")
@@ -82,7 +86,8 @@ class NgSpiceRunner:
 
     def sweep_startup(self, deck: NgSpiceTransformerDeck,
                       mains_voltages: tuple[float, ...],
-                      phases_deg: tuple[float, ...]) -> dict[tuple[float, float], float]:
+                      phases_deg: tuple[float, ...],
+                      plot_path: Path | None = None) -> dict[tuple[float, float], float]:
         """First-cycle primary peaks; no magnetic-inrush validity is implied."""
         peaks = {}
         with tempfile.TemporaryDirectory(prefix="toroid-ngspice-startup-") as temporary:
@@ -96,4 +101,7 @@ class NgSpiceRunner:
                                              no_load=False)
                     startup = samples[samples[:, 0] <= 1 / deck.spec.mains_frequency]
                     peaks[(voltage, phase)] = float(np.max(np.abs(startup[:, 2])))
+        if plot_path is not None:
+            from ...reports.ngspice_plots import save_startup_sweep_plot
+            save_startup_sweep_plot(peaks, Path(plot_path))
         return peaks

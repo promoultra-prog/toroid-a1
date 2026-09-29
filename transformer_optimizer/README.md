@@ -59,6 +59,10 @@ installed. The example optimizes a small Pareto set, then simulates one
 selected candidate with two independent 35 V windings, one bridge and 10 mF
 reservoir capacitor per winding, and a 12 Ω load per DC output. Those circuit
 values illustrate the workflow; they are not A1 supply specifications.
+The example saves five PNG files in `output/ngspice_rectifier/`: Pareto,
+startup winding currents, steady winding currents, DC rails, and first-cycle
+primary peak versus switch-on phase. Use `--output-dir PATH` to choose another
+directory. Output files are kept locally and excluded from Git.
 
 `NgSpiceTransformerDeck.from_candidate(spec, candidate, evaluation, config)`
 builds the netlist. `NgSpiceRunner().run(deck)` runs loaded and no-load
@@ -69,6 +73,8 @@ simulations to the Pareto DataFrame. `NgSpiceRunner.sweep(deck, (207, 230, 253),
 (0,))` runs steady electrical cases. `sweep_startup(deck, (230,),
 (0, 15, 30, 45, 60, 75, 90))` measures first-cycle primary peaks without
 assuming that later linear-model currents have settled.
+Pass `plots_dir=PATH` to `run` or `plot_path=PATH` to `sweep_startup` to save
+those graphs from another script. Plotting uses a noninteractive backend.
 On Windows the runner launches ngspice with a hidden console, including when
 the command on `PATH` is a `.cmd` wrapper.
 
