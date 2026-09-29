@@ -33,6 +33,16 @@ that project was changed. A1-B's own transformer order specification says
 
 ## Gate for subsequent work
 
+The `examples/a1b_electrical_reference.py` runner replays the selected A1-B
+PSU topology from four pinned SHA-256 include files read **only** from A1-B.
+It copies those bytes into `output/A1B_REFERENCE/`, where it writes reviewable
+decks, source snapshots, JSON, CSV, logs and PNGs. This is an electrical
+reference of A1-B's current **linear model**, including its assumed transformer
+parasitics. It is not a measured transformer or a physical Pareto front.
+The documented 1.5/1.5 A load is A1-B's PSU study representation of channel
+idle. The 1.8/1.5 A case is a low-line corner. A separate heavy/program load
+profile has not been specified and is not simulated.
+
 The current `DEMONSTRATOR_ONLY` plots use **2 × 35 VAC, two independent bridges,
 10 mF/12 Ω per rail, illustrative steel, fixed coupling 0.995 and a heavy
 search-space range**. Their mass and 321 A first-cycle peak are not A1-B T1

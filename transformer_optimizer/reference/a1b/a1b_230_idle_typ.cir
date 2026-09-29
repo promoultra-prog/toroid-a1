@@ -1,0 +1,23 @@
+A1-B PSU reference, a1b_230_idle_typ; transformer parasitics ASSUMED / NOT MEASURED
+.include lib/psu_main.inc
+.include lib/aux_supply.inc
+VM L 0 SIN(0 325.269 50)
+XPSU L 0 VCC VEE AUXRAWP AUXRAWN 0 SSBYP A1B_PSU_MAIN VMAIN=23.1 VAUX=16 CRES=0.033 CAP_ESR=0.006
+XAUX AUXRAWP AUXRAWN AUXP AUXN 0 A1B_AUX_SUPPLY
+VB SSBYP 0 PWL(0 0 0.15045 0 0.15055 1)
+BLP VCC 0 I={1.5*tanh(max(v(VCC),0)/2)}
+BLN 0 VEE I={1.5*tanh(max(-v(VEE),0)/2)}
+BLAP AUXP 0 I={0.107*tanh(max(v(AUXP),0)/.5)}
+BLAN 0 AUXN I={0.0044*tanh(max(-v(AUXN),0)/.5)}
+.options reltol=1e-3 abstol=1e-8 vntol=1e-5 chgtol=1e-10 trtol=10 method=gear maxord=2
+.control
+set klu
+set numdgt=15
+set wr_vecnames
+set wr_singlescale
+save v(vcc) v(vee) v(xpsu.ep) v(xpsu.en) v(xpsu.eap) v(xpsu.ean) i(v.xpsu.vsp) i(v.xpsu.vsn) i(v.xpsu.vsap) i(v.xpsu.vsan) i(vm) @d.xpsu.d1[id] @d.xpsu.d2[id] @d.xpsu.d3[id] @d.xpsu.d4[id] i(l.xpsu.lbpesl) i(l.xpsu.lbnesl) @r.xpsu.rss[i] v(auxrawp) v(auxrawn) v(auxp) v(auxn)
+tran 5u .6 0 5u uic
+wrdata a1b_230_idle_typ.dat v(vcc) v(vee) v(xpsu.ep) v(xpsu.en) v(xpsu.eap) v(xpsu.ean) i(v.xpsu.vsp) i(v.xpsu.vsn) i(v.xpsu.vsap) i(v.xpsu.vsan) i(vm) @d.xpsu.d1[id] @d.xpsu.d2[id] @d.xpsu.d3[id] @d.xpsu.d4[id] i(l.xpsu.lbpesl) i(l.xpsu.lbnesl) @r.xpsu.rss[i] v(auxrawp) v(auxrawn) v(auxp) v(auxn)
+quit
+.endc
+.end

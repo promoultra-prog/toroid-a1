@@ -53,6 +53,25 @@ end-to-end MKF run needs a complete material and compatible runtime.
 
 ## ngspice rectifier check
 
+### A1-B electrical reference
+
+`python examples/a1b_electrical_reference.py --a1b-root PATH --matrix` reads
+the selected A1-B PSU includes from `PATH` without writing to that project.
+It checks their pinned SHA-256 hashes, copies them into
+`output/A1B_REFERENCE/`, and runs 200/230/240/253 VAC with the documented
+1.5/1.5 A and 1.8/1.5 A MAIN DC loads. Its deck includes the actual A1-B
+MAIN/AUX winding topology, SBR20A200CTB bridge, TDK reservoir branches,
+47 Ω soft-start and timed bypass, AUX circuit, and modeled DC loads.
+The output contains `.cir` decks, per-case JSON and PNGs, plus a matrix CSV.
+One nominal deck, its full metrics and the eight-case summary are saved in
+`reference/a1b/` for review; the copied device includes and large waveforms
+stay local in `output/A1B_REFERENCE/`.
+The source model's LM, coupling, DCR and core-loss resistance are **assumed**, so
+the result is an electrical reference, not hardware validation. A heavy/program
+load case awaits a defined A1-B load envelope. See `R1_PHYSICS_BASELINE.md`.
+
+### Demonstrator-only rectifier
+
 Install ngspice 47 or another compatible build and put `ngspice` on `PATH`.
 Run `python examples/DEMONSTRATOR_ONLY_ngspice_rectifier.py` after the Python dependencies are
 installed. The example optimizes a small Pareto set, then simulates one

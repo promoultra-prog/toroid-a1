@@ -1,0 +1,95 @@
+{
+  "case": {
+    "name": "a1b_230_idle_typ",
+    "mains_v": 230,
+    "main_pos_load_a": 1.5,
+    "main_neg_load_a": 1.5,
+    "aux_pos_load_a": 0.107,
+    "aux_neg_load_a": 0.0044,
+    "main_no_load_v": 23.1,
+    "aux_no_load_v": 16.0,
+    "capacitor_corner": "typ",
+    "bypass_phase_deg": 189.0
+  },
+  "source_sha256": {
+    "lib/psu_main.inc": "7f8599f100b96c18f8a3c58d0e3f34286a6775965e5fae7cb0b1540472de1a4b",
+    "lib/aux_supply.inc": "1f65baa3584dfb72bb3039f7c57798e53a6bed0dec96952ca0f91d90e9b0734c",
+    "models/derived/SBR20A200CTB_element.inc": "dd7fdb3047d45bf87aa77fefbe9df8cb32e7f87157ebc7bbaacd866622196728",
+    "models/derived/TDK_B41456B8339M600.inc": "a8a5827470d7278e475547aca734d8e61afc3b9fef2817a0121080f088133e08"
+  },
+  "model_class": "A1-B selected linear PSU; transformer parasitics assumed",
+  "physical_validation_complete": false,
+  "winding_irms_a": {
+    "MAIN1": 3.174035258070274,
+    "MAIN2": 3.174035258067832,
+    "AUX1": 0.17756482057537146,
+    "AUX2": 0.17769521961493798
+  },
+  "winding_peak_a": {
+    "MAIN1": 32.47144664137041,
+    "MAIN2": 32.47144664129102,
+    "AUX1": 1.976589585112274,
+    "AUX2": 2.214537776843762
+  },
+  "winding_steady_peak_a": {
+    "MAIN1": 8.509298787393169,
+    "MAIN2": 8.509298787457336,
+    "AUX1": 0.6692495976429651,
+    "AUX2": 0.6695838579046335
+  },
+  "primary_irms_a": 0.6657192533140422,
+  "primary_peak_a": 6.808800101493944,
+  "primary_steady_peak_a": 1.779716441916889,
+  "main_rail_average_v": {
+    "positive": 29.45286169223338,
+    "negative": 29.452861692243413
+  },
+  "main_rail_min_v": {
+    "positive": 29.28516465974469,
+    "negative": 29.28516465975654
+  },
+  "main_rail_max_v": {
+    "positive": 29.630498539143,
+    "negative": 29.63049853915254
+  },
+  "main_rail_ripple_vpp": {
+    "positive": 0.34533387939831073,
+    "negative": 0.34533387939600146
+  },
+  "bridge_irms_a": {
+    "D1": 2.241540511389695,
+    "D2": 2.244446149556539,
+    "D3": 2.244446149541883,
+    "D4": 2.2415405113711544
+  },
+  "bridge_peak_a": {
+    "D1": 24.222648269462,
+    "D2": 32.46727699839178,
+    "D3": 32.46727699847358,
+    "D4": 24.22264826939246
+  },
+  "bridge_steady_peak_a": {
+    "D1": 8.49596340159332,
+    "D2": 8.505136608512458,
+    "D3": 8.505136608447234,
+    "D4": 8.495963401543445
+  },
+  "capacitor_irms_a": {
+    "positive": 2.788081293469148,
+    "negative": 2.7880812934502353
+  },
+  "capacitor_peak_a": {
+    "positive": 30.95814246021767,
+    "negative": 30.95814246030461
+  },
+  "capacitor_steady_peak_a": {
+    "positive": 6.994698293122237,
+    "negative": 6.994698293072776
+  },
+  "soft_start_energy_j": 24.152741018522107,
+  "soft_start_peak_w": 1162.974786977756,
+  "primary_peak_before_bypass_a": 4.974348641397228,
+  "primary_peak_after_bypass_a": 6.808800101493944,
+  "rail_drift_v_per_cycle": 8.637909339714867e-05,
+  "main_rails_settled": true
+}
