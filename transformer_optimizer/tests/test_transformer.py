@@ -14,6 +14,7 @@ def test_reference_transformer(spec, material):
     assert all(a > b for a, b in zip(r.secondary_voltage_no_load,
                                      r.secondary_voltage_full_load, strict=True))
     assert r.magnetizing_current_estimated
+    assert r.secondary_currents == (7.0, 7.0)
 
 
 def test_bad_geometry_is_explicit(spec, material):

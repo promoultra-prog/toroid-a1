@@ -96,6 +96,7 @@ class ToroidalTransformerModel:
             b_nominal=b_nominal, b_max_mains=b_max,
             primary_current_density=candidate.primary_wire.current_density(ip),
             secondary_current_density=tuple(candidate.secondary_wire.current_density(s.current_rms) for s in secondaries),
+            secondary_currents=tuple(s.current_rms for s in secondaries),
             primary_wire_length=pgeom.total_wire_length,
             secondary_wire_length=tuple(g.total_wire_length for g in sgeom),
             primary_resistance=rp, secondary_resistance=rs,

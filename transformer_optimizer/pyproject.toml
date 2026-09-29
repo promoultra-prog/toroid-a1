@@ -11,9 +11,13 @@ dependencies = ["numpy>=1.26", "scipy>=1.11", "pandas>=2.0", "pymoo>=0.6", "matp
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+openmagnetics = ["PyOpenMagnetics"]
 
 [project.scripts]
 transformer-optimizer = "transformer_optimizer.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"transformer_optimizer.integrations.openmagnetics" = ["data/*.json"]

@@ -12,3 +12,7 @@ def test_optimizer_smoke(spec, material):
     assert all(r.valid for r in result.evaluations)
     assert len(result.objectives) == len(result.candidates)
     assert not result.dataframe.empty
+    first = result.evaluations[0]
+    assert result.dataframe.iloc[0]["VA"] == sum(
+        voltage * current for voltage, current in zip(
+            first.secondary_voltage_full_load, first.secondary_currents, strict=True))

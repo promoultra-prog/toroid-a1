@@ -12,6 +12,7 @@ class CandidateEvaluation:
     b_max_mains: float = 0.0
     primary_current_density: float = 0.0
     secondary_current_density: tuple[float, ...] = ()
+    secondary_currents: tuple[float, ...] = ()
     primary_wire_length: float = 0.0
     secondary_wire_length: tuple[float, ...] = ()
     primary_resistance: float = 0.0

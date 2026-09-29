@@ -13,5 +13,8 @@ def test_winding_build_and_window(material):
     assert b.inner_build > a.inner_build
     assert c.total_wire_length > a.total_wire_length
     assert c.mean_turn_length > a.mean_turn_length
+    assert sum(layer.turns for layer in c.layer_details) == c.turns
+    assert all(layer.inner_coverage <= .85 and layer.outer_coverage < layer.inner_coverage
+               for layer in c.layer_details)
     with pytest.raises(GeometryError):
         winding_geometry(core, 10000, large, .0005, .85, .015)

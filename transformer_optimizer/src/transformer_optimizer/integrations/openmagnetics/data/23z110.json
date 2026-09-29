@@ -1,0 +1,13 @@
+{
+  "manufacturer": "Nippon Steel",
+  "grade": "ORIENTCORE 23Z110",
+  "strip_thickness_m": 0.00023,
+  "density_kg_m3": 7650.0,
+  "minimum_stacking_factor": 0.945,
+  "source_url": "https://www.nipponsteel.com/product/electrolytic-tinplate/list/grain-oriented/01.html",
+  "loss_points": [
+    {"frequency_hz": 50.0, "flux_density_t": 1.7, "watts_per_kg": 1.10, "kind": "maximum"}
+  ],
+  "bh_curve": [],
+  "minimum_b_at_800_a_per_m": 1.80
+}

@@ -9,8 +9,8 @@ def to_dataframe(result: OptimizationResult) -> pd.DataFrame:
             "OD_mm": c.core.outer_diameter * 1e3,
             "ID_mm": c.core.inner_diameter * 1e3,
             "H_mm": c.core.height * 1e3,
-            "VA": sum(v * j * c.secondary_wire.area for v, j in zip(
-                r.secondary_voltage_full_load, r.secondary_current_density, strict=True)),
+            "VA": sum(v * current for v, current in zip(
+                r.secondary_voltage_full_load, r.secondary_currents, strict=True)),
             "Bmax_T": r.b_max_mains,
             "Np": r.primary_turns, "Ns": r.secondary_turns,
             "primary_wire_mm": c.primary_wire.wire.conductor_diameter * 1e3,
