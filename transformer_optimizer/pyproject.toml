@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transformer-optimizer"
+version = "0.1.0"
+description = "Analytical 50/60 Hz toroidal transformer optimizer"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.11", "pandas>=2.0", "pymoo>=0.6", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+transformer-optimizer = "transformer_optimizer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
