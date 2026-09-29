@@ -61,21 +61,29 @@ class NgSpiceRunner:
             root = Path(temporary)
             temperature = (deck.winding_temperature_c if deck.winding_temperature_c is not None
                            else deck.evaluation.estimated_copper_temperature)
+            core_resistance = deck.core_loss_resistance_ohm
             for iteration in range(1, deck.config.thermal_max_iterations + 1):
-                current = replace(deck, winding_temperature_c=temperature)
+                current = replace(deck, winding_temperature_c=temperature,
+                                  core_loss_resistance_ohm=core_resistance)
                 loaded = self._run_deck(current, root / f"loaded-{iteration}", no_load=False)
                 unloaded = self._run_deck(current, root / f"unloaded-{iteration}", no_load=True)
                 result = parse_results(current, loaded, unloaded)
                 next_temperature = result.estimated_copper_temperature_c
                 if not isfinite(next_temperature) or next_temperature > 1e4:
                     raise NgSpiceExecutionError("ngspice thermal feedback diverged")
-                if abs(next_temperature - temperature) <= deck.config.thermal_tolerance_c:
+                if (abs(next_temperature - temperature) <= deck.config.thermal_tolerance_c and
+                        result.core_loss_relative_error <=
+                        deck.config.core_loss_relative_tolerance):
                     if plots_dir is not None:
                         from ...reports.ngspice_plots import save_waveform_plots
                         save_waveform_plots(current, loaded, Path(plots_dir))
                     return replace(result, thermal_iterations=iteration)
                 temperature = next_temperature
-            raise NgSpiceExecutionError("ngspice thermal feedback did not converge")
+                core_resistance = (result.primary_magnetic_voltage_rms_v**2 /
+                                   result.core_loss_target_w)
+                if not isfinite(core_resistance) or core_resistance <= 0:
+                    raise NgSpiceExecutionError("ngspice core-loss feedback diverged")
+            raise NgSpiceExecutionError("ngspice thermal/core-loss feedback did not converge")
 
     def sweep(self, deck: NgSpiceTransformerDeck, mains_voltages: tuple[float, ...],
               phases_deg: tuple[float, ...]) -> dict[tuple[float, float], NgSpiceResult]:

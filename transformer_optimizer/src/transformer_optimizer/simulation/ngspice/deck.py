@@ -25,6 +25,7 @@ class NgSpiceTransformerDeck:
     evaluation: CandidateEvaluation
     config: NgSpiceConfig
     winding_temperature_c: float | None = None
+    core_loss_resistance_ohm: float | None = None
 
     def circuit(self):
         if (self.config.bh_curve is not None and self.config.bh_curve.measured and
@@ -35,7 +36,7 @@ class NgSpiceTransformerDeck:
             self.config.mains_voltage_rms or self.spec.mains_voltage,
             self.winding_temperature_c if self.winding_temperature_c is not None
             else self.evaluation.estimated_copper_temperature,
-            self.config.core_loss_model)
+            self.config.core_loss_model, self.core_loss_resistance_ohm)
 
     @classmethod
     def from_candidate(cls, spec: TransformerSpec, candidate: TransformerCandidate,

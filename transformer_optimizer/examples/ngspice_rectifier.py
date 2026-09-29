@@ -42,6 +42,8 @@ def main():
     print(f"Rectified DC: {[round(x, 2) for x in result.rectified_dc_voltage_v]} V")
     print(f"Copper loss with charging pulses: {result.copper_loss_w:.2f} W")
     print(f"Core loss at {result.mains_voltage_rms:.0f} V: {result.core_loss_w:.2f} W")
+    print(f"Core-loss data quality: {result.core_loss_data_quality.value}")
+    print(f"Core-loss feedback error: {result.core_loss_relative_error:.3%}")
     print(f"Thermal feedback iterations: {result.thermal_iterations}")
     phases = (0, 15, 30, 45, 60, 75, 90)
     startup = NgSpiceRunner().sweep_startup(

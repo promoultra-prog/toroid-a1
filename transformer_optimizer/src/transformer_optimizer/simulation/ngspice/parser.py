@@ -4,6 +4,8 @@ from scipy.integrate import trapezoid
 from .deck import NgSpiceTransformerDeck
 from .result import NgSpiceResult
 from ...physics.thermal import thermal_estimate
+from ...physics.core_loss import (CoreLossDataQuality, SteinmetzCoreLoss,
+                                  TabulatedCoreLoss)
 
 
 def read_samples(path: Path, secondaries: int) -> np.ndarray:
@@ -75,7 +77,8 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
     # numerical drift gives AC peak B; remanence is not inferred from this.
     dt = np.diff(on[:, 0])
     integrated = np.r_[0.0, np.cumsum((on[:-1, 3] + on[1:, 3]) * dt / 2)]
-    trend = np.linspace(integrated[0], integrated[-1], len(integrated))
+    trend = integrated[0] + (integrated[-1] - integrated[0]) * (
+        (on[:, 0] - on[0, 0]) / (on[-1, 0] - on[0, 0]))
     flux = (integrated - trend) / (deck.evaluation.primary_turns *
                                   deck.candidate.core.effective_cross_section)
     b_peak = float(np.ptp(flux) / 2)
@@ -83,17 +86,27 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
     copper_loss = rms_primary**2 * circuit.primary_resistance_ohm + sum(
         current**2 * resistance for current, resistance in zip(
             sec_i, circuit.secondary_resistances_ohm, strict=True))
-    core_loss = _rms(on, 3)**2 / circuit.core_loss_resistance_ohm
+    magnetic_voltage_rms = _rms(on, 3)
+    core_loss = magnetic_voltage_rms**2 / circuit.core_loss_resistance_ohm
+    loss_model = config.core_loss_model or SteinmetzCoreLoss(deck.candidate.core.material)
+    target_core_loss = loss_model.loss_density(
+        spec.mains_frequency, b_peak, spec.ambient_temperature) * deck.candidate.core.core_mass
+    if target_core_loss <= 0:
+        raise ValueError("Core-loss model returned nonpositive loss at measured flux")
+    quality = (loss_model.quality_at(spec.mains_frequency, b_peak,
+               deck.candidate.core.material.name)
+               if isinstance(loss_model, TabulatedCoreLoss) else CoreLossDataQuality.ILLUSTRATIVE)
     thermal = thermal_estimate(spec.ambient_temperature, core_loss,
         copper_loss, spec.core_thermal_resistance, spec.copper_thermal_resistance)
     bh_physical = config.mode == "nonlinear" and config.bh_curve.measured
     remanence_modeled = False  # The present core deck has no initial magnetic state.
     return NgSpiceResult(
         model=config.mode,
-        physical_material_data=(bh_physical and circuit.core_loss_data_physical
+        physical_material_data=(bh_physical and quality == CoreLossDataQuality.MEASURED
                                 and remanence_modeled),
         bh_data_physical=bh_physical,
-        core_loss_data_physical=circuit.core_loss_data_physical,
+        core_loss_data_physical=(quality == CoreLossDataQuality.MEASURED),
+        core_loss_data_quality=quality,
         remanence_modeled=remanence_modeled,
         magnetic_inrush_valid=False,
         magnetic_inrush_peak_a=None,
@@ -106,6 +119,9 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
         no_load_current_a=no_load_current,
         copper_loss_w=copper_loss,
         core_loss_w=core_loss,
+        core_loss_target_w=target_core_loss,
+        core_loss_relative_error=abs(core_loss - target_core_loss) / target_core_loss,
+        primary_magnetic_voltage_rms_v=magnetic_voltage_rms,
         estimated_copper_temperature_c=thermal.copper_temperature,
         winding_resistance_temperature_c=(deck.winding_temperature_c
             if deck.winding_temperature_c is not None else

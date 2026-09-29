@@ -87,16 +87,24 @@ Each secondary retains its own values. `magnetic_inrush_peak_a=None` and
 magnetic inrush. `bh_data_physical` and `core_loss_data_physical` separately
 identify measured inputs; `remanence_modeled=False` keeps the aggregate
 `physical_material_data=False` even when both measured inputs are supplied.
+`core_loss_data_quality` is one of `illustrative`, `manufacturer_typical`,
+`manufacturer_guaranteed`, or `measured`. Manufacturer typical curves remain
+usable for interpolation without being labeled measured. Guarantee-only
+maximum points are upper bounds and are rejected as a nominal loss curve.
 
 The linear model uses the analytical magnetizing inductance, winding hot
 resistances, a configurable coupling coefficient, and a parallel resistance
-calibrated from the selected core-loss model at each line voltage. By default
+initially calibrated from the selected core-loss model at each line voltage. By default
 that is the candidate steel's illustrative Steinmetz model. For measured loss
 points, pass `TabulatedCoreLoss(points, source=..., material_name=...)` as
 `NgSpiceConfig.core_loss_model`; the range must cover the operating flux.
 The resistor remains an equivalent sinusoidal-loss approximation, not a
-hysteresis model. The runner re-runs ngspice with updated winding resistance
-until the lumped copper temperature converges, or raises an error. Its startup
+hysteresis model. After each run the model integrates the measured magnetic
+branch voltage `V(p)` to estimate peak AC flux, recomputes target core loss,
+and updates `RCORE` from the measured branch RMS voltage. The runner also
+updates winding resistance. It stops only when copper temperature changes by
+at most 0.05 °C and actual versus target core loss differs by at most 0.1 %;
+otherwise it raises an error. Its startup
 current includes capacitor charging but cannot predict saturation or remanence.
 The measured period must be late enough for the capacitor/load to settle.
 

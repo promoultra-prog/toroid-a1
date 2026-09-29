@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from math import isfinite
-from ...physics.core_loss import CoreLossModel
+from ...physics.core_loss import CoreLossDataQuality, CoreLossModel
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,7 @@ class NgSpiceConfig:
     core_loss_model: CoreLossModel | None = None
     thermal_tolerance_c: float = 0.05
     thermal_max_iterations: int = 8
+    core_loss_relative_tolerance: float = 0.001
 
     def __post_init__(self):
         if not self.loads or self.mode not in ("linear", "nonlinear"):
@@ -82,7 +83,8 @@ class NgSpiceConfig:
             raise ValueError("A signed B-H curve is required for nonlinear mode")
         if self.mains_voltage_rms is not None and self.mains_voltage_rms <= 0:
             raise ValueError("Mains voltage override must be positive")
-        if self.thermal_tolerance_c <= 0 or self.thermal_max_iterations < 1:
+        if (self.thermal_tolerance_c <= 0 or self.thermal_max_iterations < 1 or
+                self.core_loss_relative_tolerance <= 0):
             raise ValueError("Invalid thermal convergence settings")
 
 
@@ -92,6 +94,7 @@ class NgSpiceResult:
     physical_material_data: bool
     bh_data_physical: bool
     core_loss_data_physical: bool
+    core_loss_data_quality: CoreLossDataQuality
     remanence_modeled: bool
     magnetic_inrush_valid: bool
     magnetic_inrush_peak_a: float | None
@@ -106,6 +109,9 @@ class NgSpiceResult:
     no_load_current_a: float
     copper_loss_w: float
     core_loss_w: float
+    core_loss_target_w: float
+    core_loss_relative_error: float
+    primary_magnetic_voltage_rms_v: float
     estimated_copper_temperature_c: float
     winding_resistance_temperature_c: float
     thermal_iterations: int

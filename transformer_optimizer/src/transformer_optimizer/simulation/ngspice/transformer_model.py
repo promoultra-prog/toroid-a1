@@ -3,7 +3,8 @@ from math import pi
 from ...models.specs import TransformerSpec
 from ...models.result import CandidateEvaluation
 from ...engine.candidate import TransformerCandidate
-from ...physics.core_loss import CoreLossModel, SteinmetzCoreLoss, TabulatedCoreLoss
+from ...physics.core_loss import (CoreLossDataQuality, CoreLossModel,
+                                  SteinmetzCoreLoss, TabulatedCoreLoss)
 from ...physics.copper import resistance
 from ...physics.magnetic import flux_density
 
@@ -17,12 +18,14 @@ class CircuitTransformer:
     core_loss_resistance_ohm: float
     core_loss_w: float
     core_loss_data_physical: bool
+    core_loss_data_quality: CoreLossDataQuality
 
 
 def circuit_transformer(spec: TransformerSpec, candidate: TransformerCandidate,
                         evaluation: CandidateEvaluation, mains_voltage_rms: float,
                         winding_temperature_c: float,
-                        core_loss_model: CoreLossModel | None = None) -> CircuitTransformer:
+                        core_loss_model: CoreLossModel | None = None,
+                        core_loss_resistance_ohm: float | None = None) -> CircuitTransformer:
     if not evaluation.valid:
         raise ValueError("Only valid candidates may be simulated")
     # The linear permeability estimate is analytical. Re-evaluate core loss at
@@ -39,11 +42,15 @@ def circuit_transformer(spec: TransformerSpec, candidate: TransformerCandidate,
                                 spec.ambient_temperature) * candidate.core.core_mass
     if p_core <= 0:
         raise ValueError("Core loss must be positive")
-    rcore = mains_voltage_rms**2 / p_core
+    rcore = (core_loss_resistance_ohm if core_loss_resistance_ohm is not None
+             else mains_voltage_rms**2 / p_core)
+    if rcore <= 0:
+        raise ValueError("Core-loss resistance must be positive")
     rp = resistance(candidate.primary_wire, evaluation.primary_wire_length,
                     winding_temperature_c)
     rs = tuple(resistance(candidate.secondary_wire, length, winding_temperature_c)
                for length in evaluation.secondary_wire_length)
-    physical = isinstance(model, TabulatedCoreLoss) and model.physical_data_at(
-        spec.mains_frequency, b_line, candidate.core.material.name)
-    return CircuitTransformer(lp, ls, rp, rs, rcore, p_core, physical)
+    quality = (model.quality_at(spec.mains_frequency, b_line, candidate.core.material.name)
+               if isinstance(model, TabulatedCoreLoss) else CoreLossDataQuality.ILLUSTRATIVE)
+    return CircuitTransformer(lp, ls, rp, rs, rcore, p_core,
+                              quality == CoreLossDataQuality.MEASURED, quality)
