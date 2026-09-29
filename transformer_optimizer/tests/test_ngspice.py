@@ -11,6 +11,8 @@ from transformer_optimizer.simulation.ngspice import (
 from transformer_optimizer.optimize.pareto import OptimizationResult
 from transformer_optimizer.reports.ngspice import with_ngspice_results
 from transformer_optimizer.simulation.ngspice.parser import _window
+from transformer_optimizer.physics.core_loss import TabulatedCoreLoss
+from transformer_optimizer.integrations.openmagnetics.material_adapter import LossPoint
 
 
 def _deck(spec, material, mode="linear"):
@@ -27,7 +29,7 @@ def _deck(spec, material, mode="linear"):
                     (-1.8, -1.7, -1.55, -1.3, 0, 1.3, 1.55, 1.7, 1.8))
     config = NgSpiceConfig(loads=tuple(RectifierLoad(.01, 12) for _ in spec.expanded_secondaries),
                            mode=mode, bh_curve=curve if mode == "nonlinear" else None,
-                           cycles=6, measurement_cycles=2, samples_per_cycle=150)
+                           cycles=40, measurement_cycles=3, samples_per_cycle=150)
     return NgSpiceTransformerDeck.from_candidate(spec, candidate, evaluation, config)
 
 
@@ -60,9 +62,30 @@ def test_full_cycle_window_interpolates_endpoints():
     assert selected[0, 1] == pytest.approx(.02)
 
 
+def test_core_loss_recomputed_for_line_voltage(spec, material):
+    deck = _deck(spec, material)
+    measured = TabulatedCoreLoss((LossPoint(50, 1.0, .4, "measured"),
+                                  LossPoint(50, 1.5, 1.2, "measured"),
+                                  LossPoint(50, 2.0, 3.0, "measured")),
+                                 source="measurement record", material_name=material.name)
+    nominal = replace(deck, config=replace(deck.config, core_loss_model=measured))
+    high = replace(nominal, config=replace(nominal.config, mains_voltage_rms=253))
+    assert nominal.circuit().core_loss_data_physical
+    assert high.circuit().core_loss_data_physical
+    assert high.circuit().core_loss_w > nominal.circuit().core_loss_w
+    assert high.circuit().core_loss_resistance_ohm != pytest.approx(
+        nominal.circuit().core_loss_resistance_ohm)
+    wrong_grade = replace(nominal, config=replace(nominal.config,
+        core_loss_model=TabulatedCoreLoss(measured.points, source=measured.source,
+                                          material_name="other steel")))
+    with pytest.raises(ValueError, match="does not match"):
+        wrong_grade.circuit()
+
+
 @pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice executable unavailable")
 def test_linear_rectifier_smoke(spec, material):
-    result = NgSpiceRunner().run(_deck(spec, material))
+    deck = _deck(spec, material)
+    result = NgSpiceRunner().run(deck)
     assert result.primary_rms_current_a > result.no_load_current_a > 0
     assert len(result.secondary_rms_current_a) == 2
     assert all(0 < i < 20 for i in result.secondary_rms_current_a)
@@ -70,6 +93,15 @@ def test_linear_rectifier_smoke(spec, material):
     assert all(v > 0 for v in result.rectified_dc_voltage_v)
     assert result.copper_loss_w > 0
     assert not result.physical_material_data
+    assert not result.bh_data_physical
+    assert not result.core_loss_data_physical
+    assert not result.remanence_modeled
+    assert not result.magnetic_inrush_valid
+    assert result.magnetic_inrush_peak_a is None
+    assert result.startup_primary_peak_a > 0
+    assert result.thermal_iterations >= 1
+    assert abs(result.winding_resistance_temperature_c -
+               result.estimated_copper_temperature_c) <= deck.config.thermal_tolerance_c
     assert result.peak_primary_current_a >= result.steady_primary_peak_current_a
     assert all(a >= b for a, b in zip(result.secondary_peak_current_a,
                                       result.secondary_steady_peak_current_a, strict=True))
@@ -77,11 +109,13 @@ def test_linear_rectifier_smoke(spec, material):
         result.dc_rail_max_v, result.dc_rail_min_v, result.dc_ripple_pp_v, strict=True))
     assert all(current > voltage / 12 for current, voltage in zip(
         result.secondary_rms_current_a, result.rectified_dc_voltage_v, strict=True))
-    high_line = NgSpiceRunner().sweep(_deck(spec, material), (253.0,), (90.0,))[(253.0, 90.0)]
+    high_line = NgSpiceRunner().sweep(_deck(spec, material), (253.0,), (0.0,))[(253.0, 0.0)]
     assert high_line.mains_voltage_rms == 253.0
-    assert high_line.switch_phase_deg == 90.0
+    assert high_line.switch_phase_deg == 0.0
     assert high_line.rectified_dc_voltage_v[0] > result.rectified_dc_voltage_v[0]
-    deck = _deck(spec, material)
+    startup = NgSpiceRunner().sweep_startup(deck, (230.0,), (0.0, 90.0))
+    assert startup[(230.0, 0.0)] > 0
+    assert startup[(230.0, 90.0)] > 0
     report = with_ngspice_results(OptimizationResult(
         [deck.candidate], [deck.evaluation], [
             (deck.evaluation.total_loss, deck.evaluation.total_mass,
@@ -98,3 +132,20 @@ def test_nonlinear_deck_smoke(spec, material):
     assert result.primary_rms_current_a > 0
     assert result.peak_flux_density_t > 0
     assert not result.physical_material_data
+    measured = TabulatedCoreLoss((LossPoint(50, 1.0, .5, "measured"),
+                                  LossPoint(50, 1.5, 1.0, "measured")),
+                                 source="measurement record", material_name=material.name)
+    tagged = replace(deck, config=replace(deck.config,
+        bh_curve=replace(deck.config.bh_curve, measured=True,
+                         source="measurement record", material_name=material.name),
+        core_loss_model=measured))
+    tagged_result = NgSpiceRunner().run(tagged)
+    assert tagged_result.bh_data_physical
+    assert tagged_result.core_loss_data_physical
+    assert not tagged_result.remanence_modeled
+    assert not tagged_result.magnetic_inrush_valid
+    assert not tagged_result.physical_material_data
+    wrong_bh = replace(tagged, config=replace(tagged.config,
+        bh_curve=replace(tagged.config.bh_curve, material_name="other steel")))
+    with pytest.raises(ValueError, match="does not match"):
+        wrong_bh.render()

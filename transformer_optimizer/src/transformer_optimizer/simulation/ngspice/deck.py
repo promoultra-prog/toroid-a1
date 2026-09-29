@@ -24,6 +24,18 @@ class NgSpiceTransformerDeck:
     candidate: TransformerCandidate
     evaluation: CandidateEvaluation
     config: NgSpiceConfig
+    winding_temperature_c: float | None = None
+
+    def circuit(self):
+        if (self.config.bh_curve is not None and self.config.bh_curve.measured and
+                self.config.bh_curve.material_name != self.candidate.core.material.name):
+            raise ValueError("B-H data material does not match candidate steel")
+        return circuit_transformer(
+            self.spec, self.candidate, self.evaluation,
+            self.config.mains_voltage_rms or self.spec.mains_voltage,
+            self.winding_temperature_c if self.winding_temperature_c is not None
+            else self.evaluation.estimated_copper_temperature,
+            self.config.core_loss_model)
 
     @classmethod
     def from_candidate(cls, spec: TransformerSpec, candidate: TransformerCandidate,
@@ -34,12 +46,13 @@ class NgSpiceTransformerDeck:
             raise ValueError("Evaluation and load counts differ")
         if config.mode == "nonlinear" and len(config.loads) != 1:
             raise ValueError("Nonlinear XSPICE mode currently supports one secondary; multiwinding convergence is unverified")
-        circuit_transformer(spec, candidate, evaluation)
-        return cls(spec, candidate, evaluation, config)
+        deck = cls(spec, candidate, evaluation, config)
+        deck.circuit()
+        return deck
 
     def render(self, no_load: bool = False) -> str:
         spec, config = self.spec, self.config
-        circuit = circuit_transformer(spec, self.candidate, self.evaluation)
+        circuit = self.circuit()
         step = 1 / (spec.mains_frequency * config.samples_per_cycle)
         stop = config.cycles / spec.mains_frequency
         mains_voltage = config.mains_voltage_rms or spec.mains_voltage

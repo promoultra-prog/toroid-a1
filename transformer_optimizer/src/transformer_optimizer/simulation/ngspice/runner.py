@@ -1,5 +1,7 @@
 from pathlib import Path
 from dataclasses import replace
+from math import isfinite
+import numpy as np
 import shutil
 import subprocess
 import sys
@@ -56,9 +58,20 @@ class NgSpiceRunner:
     def run(self, deck: NgSpiceTransformerDeck) -> NgSpiceResult:
         with tempfile.TemporaryDirectory(prefix="toroid-ngspice-") as temporary:
             root = Path(temporary)
-            loaded = self._run_deck(deck, root / "loaded", no_load=False)
-            unloaded = self._run_deck(deck, root / "unloaded", no_load=True)
-            return parse_results(deck, loaded, unloaded)
+            temperature = (deck.winding_temperature_c if deck.winding_temperature_c is not None
+                           else deck.evaluation.estimated_copper_temperature)
+            for iteration in range(1, deck.config.thermal_max_iterations + 1):
+                current = replace(deck, winding_temperature_c=temperature)
+                loaded = self._run_deck(current, root / f"loaded-{iteration}", no_load=False)
+                unloaded = self._run_deck(current, root / f"unloaded-{iteration}", no_load=True)
+                result = parse_results(current, loaded, unloaded)
+                next_temperature = result.estimated_copper_temperature_c
+                if not isfinite(next_temperature) or next_temperature > 1e4:
+                    raise NgSpiceExecutionError("ngspice thermal feedback diverged")
+                if abs(next_temperature - temperature) <= deck.config.thermal_tolerance_c:
+                    return replace(result, thermal_iterations=iteration)
+                temperature = next_temperature
+            raise NgSpiceExecutionError("ngspice thermal feedback did not converge")
 
     def sweep(self, deck: NgSpiceTransformerDeck, mains_voltages: tuple[float, ...],
               phases_deg: tuple[float, ...]) -> dict[tuple[float, float], NgSpiceResult]:
@@ -66,3 +79,21 @@ class NgSpiceRunner:
         return {(voltage, phase): self.run(replace(deck, config=replace(
             deck.config, mains_voltage_rms=voltage, switch_phase_deg=phase)))
             for voltage in mains_voltages for phase in phases_deg}
+
+    def sweep_startup(self, deck: NgSpiceTransformerDeck,
+                      mains_voltages: tuple[float, ...],
+                      phases_deg: tuple[float, ...]) -> dict[tuple[float, float], float]:
+        """First-cycle primary peaks; no magnetic-inrush validity is implied."""
+        peaks = {}
+        with tempfile.TemporaryDirectory(prefix="toroid-ngspice-startup-") as temporary:
+            root = Path(temporary)
+            for voltage_index, voltage in enumerate(mains_voltages):
+                for phase_index, phase in enumerate(phases_deg):
+                    case = replace(deck, config=replace(
+                        deck.config, mains_voltage_rms=voltage, switch_phase_deg=phase,
+                        cycles=3, measurement_cycles=1))
+                    samples = self._run_deck(case, root / f"v{voltage_index}-p{phase_index}",
+                                             no_load=False)
+                    startup = samples[samples[:, 0] <= 1 / deck.spec.mains_frequency]
+                    peaks[(voltage, phase)] = float(np.max(np.abs(startup[:, 2])))
+        return peaks

@@ -63,28 +63,36 @@ values illustrate the workflow; they are not A1 supply specifications.
 `NgSpiceTransformerDeck.from_candidate(spec, candidate, evaluation, config)`
 builds the netlist. `NgSpiceRunner().run(deck)` runs loaded and no-load
 transients and returns RMS and peak winding currents, crest factor, conduction
-angle, rail voltage/sag/ripple, copper loss, AC flux amplitude, and switch-on
-current peak. `with_ngspice_results(pareto, {row_index: result})` adds selected
-simulations to the Pareto DataFrame. `NgSpiceRunner.sweep(deck, (230, 240, 253),
-(0, 30, 60, 90))` runs optional mains-voltage and switch-on-phase cases.
+angle, rail voltage/sag/ripple, copper loss, AC flux amplitude, and first-cycle
+primary peak. `with_ngspice_results(pareto, {row_index: result})` adds selected
+simulations to the Pareto DataFrame. `NgSpiceRunner.sweep(deck, (207, 230, 253),
+(0,))` runs steady electrical cases. `sweep_startup(deck, (230,),
+(0, 15, 30, 45, 60, 75, 90))` measures first-cycle primary peaks without
+assuming that later linear-model currents have settled.
 On Windows the runner launches ngspice with a hidden console, including when
 the command on `PATH` is a `.cmd` wrapper.
 
 The RMS metrics use the final complete 50 Hz periods, with interpolated period
 boundaries. `peak_primary_current_a` and `secondary_peak_current_a` cover the
-whole transient; separate steady peak fields and the first-cycle
-`inrush_peak_a` preserve the distinction. Rails include steady minimum and
-maximum voltages. Each secondary retains its own values. A supplied B-H curve
-must declare `measured=True` and a source before the result can report
-`physical_material_data=True`; linear and synthetic-curve results report false.
+whole transient; separate steady peak fields and `startup_primary_peak_a`
+preserve the distinction. Rails include steady minimum and maximum voltages.
+Each secondary retains its own values. `magnetic_inrush_peak_a=None` and
+`magnetic_inrush_valid=False` explicitly forbid treating capacitor charging as
+magnetic inrush. `bh_data_physical` and `core_loss_data_physical` separately
+identify measured inputs; `remanence_modeled=False` keeps the aggregate
+`physical_material_data=False` even when both measured inputs are supplied.
 
 The linear model uses the analytical magnetizing inductance, winding hot
 resistances, a configurable coupling coefficient, and a parallel resistance
-derived from **our** core-loss estimate. Its startup current includes capacitor
-charging, but cannot predict saturation or remanence. The reported copper
-temperature is a one-pass lumped estimate from simulated RMS losses; winding
-resistance is not iterated back into ngspice. The measured period must be late
-enough for the selected capacitor/load time constant to settle.
+calibrated from the selected core-loss model at each line voltage. By default
+that is the candidate steel's illustrative Steinmetz model. For measured loss
+points, pass `TabulatedCoreLoss(points, source=..., material_name=...)` as
+`NgSpiceConfig.core_loss_model`; the range must cover the operating flux.
+The resistor remains an equivalent sinusoidal-loss approximation, not a
+hysteresis model. The runner re-runs ngspice with updated winding resistance
+until the lumped copper temperature converges, or raises an error. Its startup
+current includes capacitor charging but cannot predict saturation or remanence.
+The measured period must be late enough for the capacitor/load to settle.
 
 The optional XSPICE `lcouple + core` mode requires a supplied signed B-H curve.
 Its piecewise-linear core model has no hysteresis or remanence. A synthetic

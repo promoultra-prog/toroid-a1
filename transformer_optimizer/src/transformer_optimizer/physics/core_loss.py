@@ -21,8 +21,20 @@ class SteinmetzCoreLoss:
 class TabulatedCoreLoss:
     """Interpolate measured W/kg points; refuse extrapolation and guarantee-only data."""
 
-    def __init__(self, points):
+    def __init__(self, points, source: str | None = None,
+                 material_name: str | None = None):
         self.points = tuple(points)
+        self.source = source
+        self.material_name = material_name
+
+    def physical_data_at(self, frequency: float, flux_density: float,
+                         material_name: str) -> bool:
+        samples = [p for p in self.points if p.frequency_hz == frequency
+                   and p.kind == "measured"]
+        return bool(self.source and self.material_name == material_name and
+                    len(samples) >= 2 and
+                    min(p.flux_density_t for p in samples) <= flux_density <=
+                    max(p.flux_density_t for p in samples))
 
     def loss_density(self, frequency: float, flux_density: float, temperature: float) -> float:
         from scipy.interpolate import PchipInterpolator

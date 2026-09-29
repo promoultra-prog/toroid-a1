@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from math import isfinite
+from ...physics.core_loss import CoreLossModel
 
 
 @dataclass(frozen=True)
@@ -8,6 +9,7 @@ class BHCurve:
     b_t: tuple[float, ...]
     measured: bool = False
     source: str | None = None
+    material_name: str | None = None
 
     def __post_init__(self):
         if len(self.h_a_per_m) < 5 or len(self.h_a_per_m) != len(self.b_t):
@@ -21,8 +23,8 @@ class BHCurve:
         if not (self.h_a_per_m[0] < 0 < self.h_a_per_m[-1] and
                 self.b_t[0] < 0 < self.b_t[-1]):
             raise ValueError("B-H curve must include positive and negative branches")
-        if self.measured and not self.source:
-            raise ValueError("Measured B-H data requires a source")
+        if self.measured and (not self.source or not self.material_name):
+            raise ValueError("Measured B-H data requires a source and material name")
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,9 @@ class NgSpiceConfig:
     no_load_resistance_ohm: float = 1e9
     sense_resistance_ohm: float = 0.001
     bh_curve: BHCurve | None = None
+    core_loss_model: CoreLossModel | None = None
+    thermal_tolerance_c: float = 0.05
+    thermal_max_iterations: int = 8
 
     def __post_init__(self):
         if not self.loads or self.mode not in ("linear", "nonlinear"):
@@ -77,12 +82,19 @@ class NgSpiceConfig:
             raise ValueError("A signed B-H curve is required for nonlinear mode")
         if self.mains_voltage_rms is not None and self.mains_voltage_rms <= 0:
             raise ValueError("Mains voltage override must be positive")
+        if self.thermal_tolerance_c <= 0 or self.thermal_max_iterations < 1:
+            raise ValueError("Invalid thermal convergence settings")
 
 
 @dataclass(frozen=True)
 class NgSpiceResult:
     model: str
     physical_material_data: bool
+    bh_data_physical: bool
+    core_loss_data_physical: bool
+    remanence_modeled: bool
+    magnetic_inrush_valid: bool
+    magnetic_inrush_peak_a: float | None
     mains_voltage_rms: float
     switch_phase_deg: float
     primary_rms_current_a: float
@@ -93,12 +105,17 @@ class NgSpiceResult:
     secondary_crest_factor: tuple[float, ...]
     no_load_current_a: float
     copper_loss_w: float
+    core_loss_w: float
     estimated_copper_temperature_c: float
+    winding_resistance_temperature_c: float
+    thermal_iterations: int
+    primary_resistance_ohm: float
+    secondary_resistances_ohm: tuple[float, ...]
     peak_flux_density_t: float
     peak_primary_current_a: float
     steady_primary_peak_current_a: float
     regulation_percent: tuple[float, ...]
-    inrush_peak_a: float
+    startup_primary_peak_a: float
     rectified_dc_voltage_v: tuple[float, ...]
     dc_rail_sag_v: tuple[float, ...]
     dc_ripple_pp_v: tuple[float, ...]

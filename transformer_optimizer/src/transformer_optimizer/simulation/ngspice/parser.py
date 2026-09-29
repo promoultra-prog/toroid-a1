@@ -41,6 +41,7 @@ def _rms(data: np.ndarray, column: int) -> float:
 def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
                   unloaded: np.ndarray) -> NgSpiceResult:
     spec, config = deck.spec, deck.config
+    circuit = deck.circuit()
     stop = config.cycles / spec.mains_frequency
     start = (config.cycles - config.measurement_cycles) / spec.mains_frequency
     on = _window(loaded, start, stop)
@@ -48,7 +49,7 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
     rms_primary = _rms(on, 2)
     no_load_current = _rms(off, 2)
     vac, sec_i, sec_peak, sec_steady_peak, crest, vdc, sag, ripple, rail_min, rail_max, angles, regulation = ([] for _ in range(12))
-    for index, resistance in enumerate(deck.evaluation.secondary_resistance):
+    for index, resistance in enumerate(circuit.secondary_resistances_ohm):
         base = 4 + 4 * index
         loaded_vac, unloaded_vac = _rms(on, base), _rms(off, base)
         current = _rms(on, base + 1) / config.sense_resistance_ohm
@@ -79,14 +80,23 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
                                   deck.candidate.core.effective_cross_section)
     b_peak = float(np.ptp(flux) / 2)
     startup = _window(loaded, 0, 1 / spec.mains_frequency)
-    copper_loss = rms_primary**2 * deck.evaluation.primary_resistance + sum(
+    copper_loss = rms_primary**2 * circuit.primary_resistance_ohm + sum(
         current**2 * resistance for current, resistance in zip(
-            sec_i, deck.evaluation.secondary_resistance, strict=True))
-    thermal = thermal_estimate(spec.ambient_temperature, deck.evaluation.core_loss,
+            sec_i, circuit.secondary_resistances_ohm, strict=True))
+    core_loss = _rms(on, 3)**2 / circuit.core_loss_resistance_ohm
+    thermal = thermal_estimate(spec.ambient_temperature, core_loss,
         copper_loss, spec.core_thermal_resistance, spec.copper_thermal_resistance)
+    bh_physical = config.mode == "nonlinear" and config.bh_curve.measured
+    remanence_modeled = False  # The present core deck has no initial magnetic state.
     return NgSpiceResult(
         model=config.mode,
-        physical_material_data=(config.mode == "nonlinear" and config.bh_curve.measured),
+        physical_material_data=(bh_physical and circuit.core_loss_data_physical
+                                and remanence_modeled),
+        bh_data_physical=bh_physical,
+        core_loss_data_physical=circuit.core_loss_data_physical,
+        remanence_modeled=remanence_modeled,
+        magnetic_inrush_valid=False,
+        magnetic_inrush_peak_a=None,
         mains_voltage_rms=config.mains_voltage_rms or spec.mains_voltage,
         switch_phase_deg=config.switch_phase_deg, primary_rms_current_a=rms_primary,
         secondary_rms_voltage_v=tuple(vac), secondary_rms_current_a=tuple(sec_i),
@@ -95,12 +105,19 @@ def parse_results(deck: NgSpiceTransformerDeck, loaded: np.ndarray,
         secondary_crest_factor=tuple(crest),
         no_load_current_a=no_load_current,
         copper_loss_w=copper_loss,
+        core_loss_w=core_loss,
         estimated_copper_temperature_c=thermal.copper_temperature,
+        winding_resistance_temperature_c=(deck.winding_temperature_c
+            if deck.winding_temperature_c is not None else
+            deck.evaluation.estimated_copper_temperature),
+        thermal_iterations=1,
+        primary_resistance_ohm=circuit.primary_resistance_ohm,
+        secondary_resistances_ohm=circuit.secondary_resistances_ohm,
         peak_flux_density_t=b_peak,
         peak_primary_current_a=float(np.max(np.abs(loaded[:, 2]))),
         steady_primary_peak_current_a=float(np.max(np.abs(on[:, 2]))),
         regulation_percent=tuple(regulation),
-        inrush_peak_a=float(np.max(np.abs(startup[:, 2]))),
+        startup_primary_peak_a=float(np.max(np.abs(startup[:, 2]))),
         rectified_dc_voltage_v=tuple(vdc), dc_rail_sag_v=tuple(sag),
         dc_ripple_pp_v=tuple(ripple), dc_rail_min_v=tuple(rail_min),
         dc_rail_max_v=tuple(rail_max), diode_conduction_angle_deg=tuple(angles))
