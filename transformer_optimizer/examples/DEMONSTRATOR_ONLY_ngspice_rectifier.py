@@ -10,14 +10,18 @@ from transformer_optimizer.simulation.ngspice import (
 from transformer_optimizer.reports.ngspice import with_ngspice_results
 from transformer_optimizer.reports.plots import plot_pareto
 
+DEMO_BANNER = "DEMONSTRATOR ONLY - NOT AN A1 TRANSFORMER SPECIFICATION"
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the ngspice rectifier example")
+    parser = argparse.ArgumentParser(description="Run the demonstrator-only ngspice example")
     parser.add_argument("--output-dir", type=Path,
-                        default=Path(__file__).resolve().parents[1] / "output" / "ngspice_rectifier")
+                        default=Path(__file__).resolve().parents[1] / "output" /
+                                "DEMONSTRATOR_ONLY_ngspice_rectifier")
     args = parser.parse_args()
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    print(DEMO_BANNER)
     # Demonstrator circuit values only. Replace load and capacitor bank with A1 data.
     steel = CoreMaterial("example grain-oriented steel", 7650.0, 0.003, 1.5, 2.0)
     spec = TransformerSpec(230.0, 50.0, 253.0,
@@ -35,7 +39,9 @@ def main():
     config = NgSpiceConfig(loads=(RectifierLoad(.01, 12.0), RectifierLoad(.01, 12.0)))
     deck = NgSpiceTransformerDeck.from_candidate(spec, pareto.candidates[0],
                                                   pareto.evaluations[0], config)
-    result = NgSpiceRunner().run(deck, plots_dir=output_dir)
+    result = NgSpiceRunner().run(deck, plots_dir=output_dir,
+                                 plot_banner=DEMO_BANNER,
+                                 plot_filename_prefix="DEMONSTRATOR_ONLY_")
     print(f"Model: {result.model}")
     print(f"Primary RMS: {result.primary_rms_current_a:.2f} A")
     print(f"Secondary RMS: {[round(x, 2) for x in result.secondary_rms_current_a]} A")
@@ -48,16 +54,21 @@ def main():
     phases = (0, 15, 30, 45, 60, 75, 90)
     startup = NgSpiceRunner().sweep_startup(
         deck, (spec.mains_voltage,), phases,
-        plot_path=output_dir / "startup_phase_sweep.png")
+        plot_path=output_dir / "DEMONSTRATOR_ONLY_startup_phase_sweep.png",
+        plot_banner=DEMO_BANNER)
     worst_startup_primary_peak_a = max(startup.values())
     print(f"Largest first-cycle primary peak across {len(phases)} phases: "
           f"{worst_startup_primary_peak_a:.2f} A")
     print(f"Physical material data: {result.physical_material_data}")
     report = with_ngspice_results(pareto, {0: result})
-    print(f"Pareto report: {len(report)} rows; ngspice validated: {int(report.ngspice_validated.sum())}")
+    print(f"Analytical surrogate Pareto: {len(report)} rows; "
+          f"ngspice simulated: {int(report.ngspice_simulated.sum())}; "
+          "physical validation complete: 0")
     import matplotlib.pyplot as plt
     figure = plot_pareto(pareto)
-    figure.savefig(output_dir / "pareto.png", dpi=160, bbox_inches="tight")
+    figure.suptitle("DEMONSTRATOR ONLY - analytical surrogate Pareto", color="darkred")
+    figure.savefig(output_dir / "DEMONSTRATOR_ONLY_pareto.png", dpi=160,
+                   bbox_inches="tight")
     plt.close(figure)
     print(f"Saved 5 PNG plots in {output_dir}")
 

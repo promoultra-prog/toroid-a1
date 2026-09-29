@@ -11,14 +11,19 @@ def _pyplot():
     return plt
 
 
-def _save(fig, path: Path, plt):
+def _save(fig, path: Path, plt, banner: str | None = None):
+    if banner:
+        fig.text(.5, .99, banner, ha="center", va="top", color="darkred",
+                 fontsize=11, weight="bold")
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=160, bbox_inches="tight")
     plt.close(fig)
     return path
 
 
-def save_waveform_plots(deck, loaded: np.ndarray, output_dir: Path) -> tuple[Path, ...]:
+def save_waveform_plots(deck, loaded: np.ndarray, output_dir: Path,
+                        banner: str | None = None,
+                        filename_prefix: str = "") -> tuple[Path, ...]:
     """Save startup and steady waveforms from the final thermal iteration."""
     plt = _pyplot()
     output_dir = Path(output_dir)
@@ -39,7 +44,7 @@ def save_waveform_plots(deck, loaded: np.ndarray, output_dir: Path) -> tuple[Pat
            title="Startup electrical currents (magnetic inrush unverified)")
     ax.grid(alpha=.25)
     ax.legend()
-    saved.append(_save(fig, output_dir / "startup_currents.png", plt))
+    saved.append(_save(fig, output_dir / f"{filename_prefix}startup_currents.png", plt, banner))
 
     fig, ax = plt.subplots(figsize=(10, 4.5))
     ax.plot(steady[:, 0] * 1000, -steady[:, 2], label="Primary current")
@@ -51,7 +56,7 @@ def save_waveform_plots(deck, loaded: np.ndarray, output_dir: Path) -> tuple[Pat
            title="Winding currents: final measurement periods")
     ax.grid(alpha=.25)
     ax.legend()
-    saved.append(_save(fig, output_dir / "steady_currents.png", plt))
+    saved.append(_save(fig, output_dir / f"{filename_prefix}steady_currents.png", plt, banner))
 
     fig, ax = plt.subplots(figsize=(10, 4.5))
     for index in range(count):
@@ -61,11 +66,12 @@ def save_waveform_plots(deck, loaded: np.ndarray, output_dir: Path) -> tuple[Pat
            title="Rectified DC rails: final measurement periods")
     ax.grid(alpha=.25)
     ax.legend()
-    saved.append(_save(fig, output_dir / "dc_rails.png", plt))
+    saved.append(_save(fig, output_dir / f"{filename_prefix}dc_rails.png", plt, banner))
     return tuple(saved)
 
 
-def save_startup_sweep_plot(peaks: dict[tuple[float, float], float], path: Path) -> Path:
+def save_startup_sweep_plot(peaks: dict[tuple[float, float], float], path: Path,
+                            banner: str | None = None) -> Path:
     """Save first-cycle primary peaks versus switch-on phase for each line voltage."""
     if not peaks:
         raise ValueError("Startup sweep has no cases")
@@ -79,4 +85,4 @@ def save_startup_sweep_plot(peaks: dict[tuple[float, float], float], path: Path)
            title="Electrical startup stress (magnetic inrush unverified)")
     ax.grid(alpha=.25)
     ax.legend(title="Mains RMS")
-    return _save(fig, Path(path), plt)
+    return _save(fig, Path(path), plt, banner)

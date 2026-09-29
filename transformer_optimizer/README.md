@@ -54,12 +54,16 @@ end-to-end MKF run needs a complete material and compatible runtime.
 ## ngspice rectifier check
 
 Install ngspice 47 or another compatible build and put `ngspice` on `PATH`.
-Run `python examples/ngspice_rectifier.py` after the Python dependencies are
+Run `python examples/DEMONSTRATOR_ONLY_ngspice_rectifier.py` after the Python dependencies are
 installed. The example optimizes a small Pareto set, then simulates one
 selected candidate with two independent 35 V windings, one bridge and 10 mF
 reservoir capacitor per winding, and a 12 Ω load per DC output. Those circuit
 values illustrate the workflow; they are not A1 supply specifications.
-The example saves five PNG files in `output/ngspice_rectifier/`: Pareto,
+The example and plots are labeled **DEMONSTRATOR ONLY**. The analytical Pareto
+plot is a surrogate front; ngspice has been run for only one selected row and
+does not change that front. See `R1_PHYSICS_BASELINE.md` for the read-only
+audit of A1-B's actual design targets and the inputs still needing evidence.
+The example saves five PNG files in `output/DEMONSTRATOR_ONLY_ngspice_rectifier/`: Pareto,
 startup winding currents, steady winding currents, DC rails, and first-cycle
 primary peak versus switch-on phase. Use `--output-dir PATH` to choose another
 directory. Output files are kept locally and excluded from Git.

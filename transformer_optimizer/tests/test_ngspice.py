@@ -114,9 +114,11 @@ def test_core_loss_feedback_uses_magnetic_branch_voltage(spec, material):
 @pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice executable unavailable")
 def test_linear_rectifier_smoke(spec, material, tmp_path):
     deck = _deck(spec, material)
-    result = NgSpiceRunner().run(deck, plots_dir=tmp_path)
+    result = NgSpiceRunner().run(
+        deck, plots_dir=tmp_path, plot_banner="DEMONSTRATOR ONLY",
+        plot_filename_prefix="DEMONSTRATOR_ONLY_")
     for name in ("startup_currents.png", "steady_currents.png", "dc_rails.png"):
-        image = tmp_path / name
+        image = tmp_path / f"DEMONSTRATOR_ONLY_{name}"
         assert image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert result.primary_rms_current_a > result.no_load_current_a > 0
     assert len(result.secondary_rms_current_a) == 2
@@ -160,7 +162,8 @@ def test_linear_rectifier_smoke(spec, material, tmp_path):
         [deck.candidate], [deck.evaluation], [
             (deck.evaluation.total_loss, deck.evaluation.total_mass,
              deck.evaluation.regulation_percent)]), {0: result})
-    assert bool(report.at[0, "ngspice_validated"])
+    assert bool(report.at[0, "ngspice_simulated"])
+    assert not bool(report.at[0, "physical_validation_complete"])
     assert report.at[0, "ngspice_copper_loss_w"] == result.copper_loss_w
 
 
